@@ -1,0 +1,21 @@
+html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background-color: #f8f8f8; font-family: 'Segoe UI', sans-serif; }
+.main-container { display: flex; flex-direction: column; height: 100vh; padding: 10px; box-sizing: border-box; }
+
+.file-section { margin-bottom: 8px; font-size: 11px; display: flex; align-items: center; gap: 8px; }
+.custom-file-upload { background: #fff; border: 1px solid #ccc; padding: 4px 10px; cursor: pointer; border-radius: 2px; font-weight: bold; }
+
+.search-row { display: flex; gap: 4px; margin-bottom: 8px; }
+.search-box { flex-grow: 1; padding: 6px; border: 1px solid #0078d4; outline: none; }
+.btn-sort { background: #fff; border: 1px solid #ccc; cursor: pointer; width: 35px; font-weight: bold; }
+
+.tabs { display: flex; border-bottom: 1px solid #ccc; background: #fff; }
+.tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; color: #666; font-size: 13px; border-bottom: 2px solid transparent; }
+.tab.active { color: #0078d4; border-bottom: 2px solid #0078d4; font-weight: bold; }
+
+#bucleActions { display: none; padding: 8px; gap: 8px; background: #fff; border: 1px solid #ccc; border-top: none; }
+.btn-action { flex: 1; padding: 8px; border: none; background: #0078d4; color: #fff; font-weight: bold; cursor: pointer; font-size: 12px; }
+.btn-secondary { background: #edebe9; color: #323130; }
+
+.list-container { flex-grow: 1; overflow-y: auto; background: #fff; border: 1px solid #ccc; border-top: none; }
+.item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 13px; }
+.item:hover { background: #f3f2f1; color: #0078d4; }
