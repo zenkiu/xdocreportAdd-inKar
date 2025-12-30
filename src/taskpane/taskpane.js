@@ -1,6 +1,6 @@
 /**
  * XDocReportKar – Word Add-in (Office.js)
- * Versión optimizada para Texto Plano (sin bordes ni símbolos)
+ * Versión con MERGEFIELD usando OOXML
  */
 
 let allFields = { G: [], U: [], P: [] };
@@ -18,11 +18,8 @@ Office.onReady((info) => {
         document.getElementById("btnAZ").onclick = () => sortAndRender(true);
         document.getElementById("btnZA").onclick = () => sortAndRender(false);
 
-        document.getElementById("btnForeach").onclick =
-            () => insertCampo("#foreach($r in $resultados)");
-
-        document.getElementById("btnEnd").onclick =
-            () => insertCampo("#end");
+        document.getElementById("btnForeach").onclick = () => insertMergeField("#foreach($r in $resultados)");
+        document.getElementById("btnEnd").onclick = () => insertMergeField("#end");
 
         document.querySelectorAll(".tab").forEach(tab => {
             tab.onclick = (e) => {
@@ -105,12 +102,14 @@ function renderList() {
 
             div.onclick = () => {
                 if (currentTab === "P") {
-                    // PLURAL → Velocity ($r.xxx)
-                    const campo = "$r." + item.split(".").slice(1).join(".");
-                    insertCampo(campo);
+                    // PLURAL → $r.campo (en minúsculas para coincidir con SQL)
+                    const partes = item.split(".");
+                    const nombreCampo = partes.slice(1).join(".").toLowerCase();
+                    const campo = "$r." + nombreCampo;
+                    insertMergeField(campo);
                 } else {
-                    // GENERAL / ÚNICO → $campo
-                    insertCampo("$" + item);
+                    // GENERAL / ÚNICO → $campo (mantenemos el caso original)
+                    insertMergeField("$" + item);
                 }
             };
 
@@ -127,59 +126,80 @@ function sortAndRender(asc) {
 }
 
 /* =========================
-   INSERCIÓN SEGURA (TEXTO PLANO)
+   INSERCIÓN CON MERGEFIELD usando OOXML
    ========================= */
 
-async function insertCampo(text) {
+async function insertMergeField(texto) {
     await Word.run(async (context) => {
         const selection = context.document.getSelection();
-
-        // 1. Creamos el Content Control (indispensable para que XDocReport lo detecte)
-        const cc = selection.insertContentControl();
         
-        // 2. Asignamos el código Velocity al Tag y Title
-        cc.title = text;
-        cc.tag = text;
-
-        /**
-         * 3. CONFIGURACIÓN DE TEXTO PLANO
-         * "Hidden" elimina el recuadro gris y la etiqueta visual de Word.
-         * El campo existirá en el código, pero el usuario lo verá como texto normal.
-         */
-        cc.appearance = "Hidden"; 
-
-        /**
-         * 4. INSERCIÓN DEL TEXTO
-         * Insertamos el texto directamente sin los símbolos « ».
-         * Esto garantiza que en el documento final no quede rastro de caracteres extra.
-         */
-        cc.insertText(text, Word.InsertLocation.replace);
-
-        // 5. Gestión del cursor: movemos el foco fuera del control para evitar escribir dentro
-        const after = cc.getRange(Word.RangeLocation.after);
-        after.insertText(" ", Word.InsertLocation.after);
-        after.select(Word.SelectionMode.end);
+        const ooxml = `
+            <pkg:package xmlns:pkg="http://schemas.microsoft.com/office/2006/xmlPackage">
+                <pkg:part pkg:name="/_rels/.rels" pkg:contentType="application/vnd.openxmlformats-package.relationships+xml">
+                    <pkg:xmlData>
+                        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                            <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+                        </Relationships>
+                    </pkg:xmlData>
+                </pkg:part>
+                <pkg:part pkg:name="/word/document.xml" pkg:contentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml">
+                    <pkg:xmlData>
+                        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                            <w:body>
+                                <w:p>
+                                    <w:r>
+                                        <w:fldChar w:fldCharType="begin"/>
+                                    </w:r>
+                                    <w:r>
+                                        <w:instrText xml:space="preserve"> MERGEFIELD  ${escapeXml(texto)}  \\* MERGEFORMAT </w:instrText>
+                                    </w:r>
+                                    <w:r>
+                                        <w:fldChar w:fldCharType="separate"/>
+                                    </w:r>
+                                    <w:r>
+                                        <w:t>«${escapeXml(texto)}»</w:t>
+                                    </w:r>
+                                    <w:r>
+                                        <w:fldChar w:fldCharType="end"/>
+                                    </w:r>
+                                </w:p>
+                            </w:body>
+                        </w:document>
+                    </pkg:xmlData>
+                </pkg:part>
+            </pkg:package>
+        `;
+        
+        selection.insertOoxml(ooxml, Word.InsertLocation.end);
+        
+        const afterRange = selection.getRange(Word.RangeLocation.after);
+        afterRange.insertText(" ", Word.InsertLocation.after);
+        afterRange.select(Word.SelectionMode.end);
 
         await context.sync();
     });
 }
 
+/**
+ * Escapa caracteres especiales XML
+ */
+function escapeXml(text) {
+    return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
 /* =========================
-   LIMPIEZA FINAL
+   LIMPIEZA FINAL (opcional)
    ========================= */
 
-async function limpiarContentControls() {
+async function limpiarMergeFields() {
     await Word.run(async (context) => {
-        const controls = context.document.contentControls;
-        controls.load("items");
-
-        await context.sync();
-
-        // Elimina el control PERO conserva el texto (Útil para procesos manuales)
-        controls.items.forEach(cc => {
-            cc.remove(false);
-        });
-
-        await context.sync();
+        // Esta función es más compleja con OOXML
+        // Por ahora, se puede hacer manualmente en Word con Alt+F9 y copiar/pegar
+        alert("Para limpiar los campos: Presiona Alt+F9 para ver los códigos, luego Ctrl+Shift+F9 para convertirlos a texto");
     });
 }
